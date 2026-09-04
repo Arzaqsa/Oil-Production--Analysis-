@@ -10,12 +10,11 @@ st.set_page_config(page_title="Arzaq Pro - IPR", layout="wide", page_icon="🛢�
 st.markdown("""
 <style>
 .main-header {font-size:2.5rem; color:#1f77b4; font-weight:bold;}
-.sub-header {font-size:1.2rem; color:#666;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🛢️ Arzaq Pro</p>', unsafe_allow_html=True)
-st.markdown('<p class="sub-header">Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
+st.markdown('<p>Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
 st.divider()
 
 with st.sidebar:
@@ -43,6 +42,7 @@ else:
     AOF = (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
 
 efficiency = (Q / AOF) * 100 if AOF > 0 else 0
+PI = Q/(Pr-Pwf) if Pr!=Pwf else 0
 
 P_vals = np.linspace(0, Pr, 100)
 Q_vals = []
@@ -62,31 +62,52 @@ with tab_dash:
     col2.metric("Current Q", f"{Q:.0f} STB/day")
     col3.metric("Efficiency", f"{efficiency:.2f}%")
     col4.metric("Flow Type", "Vogel" if Pwf < Pb else "Darcy")
-    st.sidebar.write(f"Debug: AOF={AOF:.1f}")
 
 with tab_curve:
     fig, ax = plt.subplots(figsize=(8,5))
-    ax.plot(Q_vals, P_vals, 'b-', linewidth=2)
-    ax.plot(Q, Pwf, 'ro', markersize=10, label=f'Current Point: {Q:.0f}, {Pwf:.0f}')
-    ax.set_xlabel("Flow Rate Q (STB/day)")
-    ax.set_ylabel("Pressure (psi)")
-    ax.set_title("IPR Curve")
-    ax.legend()
-    ax.grid(True)
+    ax.plot(Q_vals, P_vals, 'b-', linewidth=2, label="IPR Curve")
+    ax.plot(Q, Pwf, 'ro', markersize=10, label=f'Operating Point')
+    ax.set_xlabel("Flow Rate Q (STB/day)"); ax.set_ylabel("Pressure (psi)")
+    ax.set_title("IPR Curve"); ax.legend(); ax.grid(True)
     st.pyplot(fig)
 
 with tab_diag:
     st.subheader("Well Diagnostics")
-    st.write(f"**AOF**: {AOF:.1f} STB/day")
-    st.write(f"**Productivity Index**: {Q/(Pr-Pwf):.3f} STB/day/psi")
+    st.write(f"**Productivity Index PI**: {PI:.3f} STB/day/psi")
+    st.write(f"**Drawdown**: {Pr-Pwf:.0f} psi")
 
 with tab_report:
     st.subheader("Generate PDF Report")
-    if st.button("Download Report"):
+    if st.button("📄 Generate Report"):
         buffer = BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
-        c.drawString(100, 800, f"Arzaq Pro Report - {datetime.now().strftime('%Y-%m-%d')}")
-        c.drawString(100, 780, f"AOF: {AOF:.1f} STB/day")
-        c.drawString(100, 760, f"Efficiency: {efficiency:.2f}%")
+        y = 800
+        c.setFont("Helvetica-Bold", 16)
+        c.drawString(50, y, f"Arzaq Pro - Well Performance Report")
+        y -= 30
+        c.setFont("Helvetica", 10)
+        c.drawString(50, y, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
+        y -= 40
+        
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(50, y, "1. Input Parameters:")
+        y -= 20
+        c.setFont("Helvetica", 10)
+        inputs = [f"Pr: {Pr} psi", f"Pb: {Pb} psi", f"Pwf: {Pwf} psi", f"Q: {Q} STB/day",
+                  f"kh: {kh} mD.ft", f"mu: {mu} cp", f"Bo: {Bo} RB/STB", f"S: {S}", f"re: {re} ft", f"rw: {rw} ft"]
+        for inp in inputs:
+            c.drawString(70, y, f"- {inp}"); y -= 15
+        
+        y -= 10
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(50, y, "2. Results:")
+        y -= 20
+        c.setFont("Helvetica", 10)
+        c.drawString(70, y, f"- AOF: {AOF:.2f} STB/day"); y -= 15
+        c.drawString(70, y, f"- Efficiency: {efficiency:.2f} %"); y -= 15
+        c.drawString(70, y, f"- PI: {PI:.4f} STB/day/psi"); y -= 15
+        c.drawString(70, y, f"- Flow Type: {'Vogel' if Pwf < Pb else 'Darcy'}")
+        
         c.save()
-        st.download_button("Download PDF", buffer.getvalue(), "report.pdf")
+        buffer.seek(0)
+        st.download_button("⬇️ Download PDF", buffer, "Arzaq_Report.pdf", "application/pdf")

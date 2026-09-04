@@ -10,11 +10,12 @@ st.set_page_config(page_title="Arzaq Pro - IPR", layout="wide", page_icon="🛢�
 st.markdown("""
 <style>
 .main-header {font-size:2.5rem; color:#1f77b4; font-weight:bold;}
+.sub-header {font-size:1.2rem; color:#666;}
 </style>
 """, unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🛢️ Arzaq Pro</p>', unsafe_allow_html=True)
-st.markdown('<p>Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
+st.markdown('<p class="sub-header">Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
 st.divider()
 
 with st.sidebar:
@@ -34,80 +35,105 @@ if Pwf > Pr:
     st.error("Error: Pwf cannot be greater than Pr")
     st.stop()
 
+# ====== CALCULATIONS - معادلة Darcy المصححة ======
 denom = 141.2 * Bo * mu * (np.log(re/rw) - 0.75 + S)
-
-if Pb < Pr:
-    AOF = (kh * (Pr**2 - Pb**2)) / denom
-else:
-    AOF = (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-
+PI = kh / denom  # Productivity Index
+AOF = PI * Pr    # AOF = PI * Pr للـ Darcy Flow
 efficiency = (Q / AOF) * 100 if AOF > 0 else 0
-PI = Q/(Pr-Pwf) if Pr!=Pwf else 0
+drawdown = Pr - Pwf
 
+# ====== IPR CURVE ======
 P_vals = np.linspace(0, Pr, 100)
-Q_vals = []
-for P in P_vals:
-    if P >= Pb: 
-        Qp = (kh * (Pr - P)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-    else: 
-        Qb = (kh * (Pr - Pb)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-        Qp = Qb + (AOF - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)
-    Q_vals.append(max(0, Qp))
+Q_vals = PI * (Pr - P_vals)  # معادلة Darcy الخطية
 
 tab_dash, tab_curve, tab_diag, tab_report = st.tabs(["📊 Dashboard", "📈 IPR Curve", "🔍 Diagnostics", "📄 Report"])
 
 with tab_dash:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("AOF", f"{AOF:.1f} STB/day")
-    col2.metric("Current Q", f"{Q:.0f} STB/day")
+    col1.metric("AOF", f"{AOF:,.1f} STB/day")
+    col2.metric("Current Q", f"{Q:,.0f} STB/day")
     col3.metric("Efficiency", f"{efficiency:.2f}%")
-    col4.metric("Flow Type", "Vogel" if Pwf < Pb else "Darcy")
+    col4.metric("PI", f"{PI:.4f} STB/d/psi")
+    
+    st.success(f"Flow Regime: Darcy Single Phase - Pwf > Pb")
 
 with tab_curve:
-    fig, ax = plt.subplots(figsize=(8,5))
-    ax.plot(Q_vals, P_vals, 'b-', linewidth=2, label="IPR Curve")
-    ax.plot(Q, Pwf, 'ro', markersize=10, label=f'Operating Point')
-    ax.set_xlabel("Flow Rate Q (STB/day)"); ax.set_ylabel("Pressure (psi)")
-    ax.set_title("IPR Curve"); ax.legend(); ax.grid(True)
+    fig, ax = plt.subplots(figsize=(10,6))
+    ax.plot(Q_vals, P_vals, 'b-', linewidth=2.5, label="IPR Curve - Darcy")
+    ax.plot(Q, Pwf, 'ro', markersize=12, label=f'Operating Point: Q={Q:,.0f}, Pwf={Pwf:.0f}')
+    ax.axhline(y=Pb, color='g', linestyle='--', label=f'Bubble Point Pb={Pb} psi')
+    ax.set_xlabel("Flow Rate Q (STB/day)", fontsize=12)
+    ax.set_ylabel("Pressure (psi)", fontsize=12)
+    ax.set_title("Inflow Performance Relationship - IPR", fontsize=14, fontweight='bold')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.invert_yaxis()
     st.pyplot(fig)
 
 with tab_diag:
     st.subheader("Well Diagnostics")
-    st.write(f"**Productivity Index PI**: {PI:.3f} STB/day/psi")
-    st.write(f"**Drawdown**: {Pr-Pwf:.0f} psi")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Drawdown", f"{drawdown:.0f} psi")
+        st.metric("AOF", f"{AOF:,.1f} STB/day")
+    with col2:
+        st.metric("Current Q", f"{Q:,.0f} STB/day")
+        st.metric("Efficiency", f"{efficiency:.2f}%")
+    
+    if efficiency < 50:
+        st.warning("Low Efficiency: Well may need stimulation")
+    elif efficiency < 80:
+        st.info("Medium Efficiency")
+    else:
+        st.success("High Efficiency")
 
 with tab_report:
     st.subheader("Generate PDF Report")
-    if st.button("📄 Generate Report"):
+    if st.button("📄 Generate Full Report"):
         buffer = BytesIO()
         c = canvas.Canvas(buffer, pagesize=A4)
         y = 800
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, y, f"Arzaq Pro - Well Performance Report")
-        y -= 30
+        
+        # Header
+        c.setFont("Helvetica-Bold", 18)
+        c.drawString(50, y, "Arzaq Pro - Well Performance Report")
+        y -= 25
         c.setFont("Helvetica", 10)
         c.drawString(50, y, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
-        y -= 40
+        y -= 35
         
+        # Inputs
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, "1. Input Parameters:")
+        c.drawString(50, y, "1. Input Parameters")
         y -= 20
         c.setFont("Helvetica", 10)
-        inputs = [f"Pr: {Pr} psi", f"Pb: {Pb} psi", f"Pwf: {Pwf} psi", f"Q: {Q} STB/day",
-                  f"kh: {kh} mD.ft", f"mu: {mu} cp", f"Bo: {Bo} RB/STB", f"S: {S}", f"re: {re} ft", f"rw: {rw} ft"]
+        inputs = [
+            f"Reservoir Pressure Pr: {Pr:.0f} psi",
+            f"Bubble Point Pb: {Pb:.0f} psi", 
+            f"Bottom Hole Pressure Pwf: {Pwf:.0f} psi",
+            f"Current Flow Rate Q: {Q:,.0f} STB/day",
+            f"Permeability-Thickness kh: {kh:,.0f} mD.ft",
+            f"Viscosity mu: {mu:.2f} cp",
+            f"Formation Volume Factor Bo: {Bo:.2f} RB/STB",
+            f"Skin Factor S: {S:.1f}",
+            f"Drainage Radius re: {re:.0f} ft",
+            f"Wellbore Radius rw: {rw:.2f} ft"
+        ]
         for inp in inputs:
-            c.drawString(70, y, f"- {inp}"); y -= 15
+            c.drawString(70, y, f"• {inp}"); y -= 15
         
-        y -= 10
+        y -= 15
+        # Results
         c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, y, "2. Results:")
+        c.drawString(50, y, "2. Results")
         y -= 20
         c.setFont("Helvetica", 10)
-        c.drawString(70, y, f"- AOF: {AOF:.2f} STB/day"); y -= 15
-        c.drawString(70, y, f"- Efficiency: {efficiency:.2f} %"); y -= 15
-        c.drawString(70, y, f"- PI: {PI:.4f} STB/day/psi"); y -= 15
-        c.drawString(70, y, f"- Flow Type: {'Vogel' if Pwf < Pb else 'Darcy'}")
+        c.drawString(70, y, f"• Productivity Index PI: {PI:.4f} STB/day/psi"); y -= 15
+        c.drawString(70, y, f"• Absolute Open Flow AOF: {AOF:,.2f} STB/day"); y -= 15
+        c.drawString(70, y, f"• Well Efficiency: {efficiency:.2f} %"); y -= 15
+        c.drawString(70, y, f"• Drawdown: {drawdown:.0f} psi"); y -= 15
+        c.drawString(70, y, f"• Flow Regime: Darcy Single Phase")
         
         c.save()
         buffer.seek(0)
-        st.download_button("⬇️ Download PDF", buffer, "Arzaq_Report.pdf", "application/pdf")
+        st.download_button("⬇️ Download PDF Report", buffer, "Arzaq_Report.pdf", "application/pdf")

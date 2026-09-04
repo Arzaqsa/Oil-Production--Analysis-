@@ -50,6 +50,8 @@ with st.sidebar:
         if st.button("🟠 Heavy Oil Well"):
             st.session_state.update({'Pr':4000,'Pb':2000,'kh':5000,'mu':5.0,'Bo':1.1})
             st.rerun()
+    with tab3:
+        st.info("Arzaq Pro v1.2\nIPR Dashboard using Darcy & Vogel Equations")
 
 # ===================== VALIDATION & CALC =====================
 if Pwf > Pr: 
@@ -59,11 +61,11 @@ if Pwf > Pr:
 pi = np.pi
 denom = 141.2 * Bo * mu * (np.log(re/rw) - 0.75 + S)
 
-# نحسب AOF كامل بدون قسمة 1000
+# نحسب AOF كامل بدون قسمة 1000 عشان الحسابات
 AOF_full = (kh * (Pr**2 - Pb**2)) / denom if Pb < Pr else (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-AOF = AOF_full / 1000  # للعرض فقط بالالف
+AOF = AOF_full / 1000  # للعرض فقط بالالف STB/day
 
-efficiency = (Q / AOF_full) * 100 if AOF_full > 0 else 0  # <-- هنا التعديل
+efficiency = (Q / AOF_full) * 100 if AOF_full > 0 else 0  # <-- التعديل هنا
 
 # IPR Curve
 P_vals = np.linspace(0, Pr, 100)
@@ -73,7 +75,7 @@ for P in P_vals:
         Qp = (kh * (Pr - P)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
     else: 
         Qb = (kh * (Pr - Pb)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-        Qp = Qb + (AOF_full - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)  # <-- استخدمنا AOF_full
+        Qp = Qb + (AOF_full - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)  # <-- وهنا
     Q_vals.append(max(0, Qp))
 
 # ===================== PDF FUNCTION =====================
@@ -86,7 +88,7 @@ def create_pdf():
     y = 740
     c.setFont("Helvetica-Bold", 12); c.drawString(50, y, "Input Parameters:"); y -= 20
     c.setFont("Helvetica", 10)
-    inputs = [f"Pr = {Pr} psi", f"Pb = {Pb} psi", f"Pwf = {Pwf} psi", f"Q = {Q} STB/day", f"AOF = {AOF:.1f} STB/day", f"Efficiency = {efficiency:.1f}%"]
+    inputs = [f"Pr = {Pr} psi", f"Pb = {Pb} psi", f"Pwf = {Pwf} psi", f"Q = {Q:.0f} STB/day", f"AOF = {AOF:.1f} STB/day", f"Efficiency = {efficiency:.1f}%"]
     for i in inputs: c.drawString(70, y, i); y -= 15
     y -= 20
     c.setFont("Helvetica-Bold", 12); c.drawString(50, y, "Diagnosis:")
@@ -107,7 +109,7 @@ tab_dash, tab_curve, tab_diag, tab_report = st.tabs(["📊 Dashboard", "📈 IPR
 
 with tab_dash:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("AOF", f"{AOF:.1f} STB/day")
+    col1.metric("AOF", f"{AOF:.1f} K STB/day")
     col2.metric("Current Q", f"{Q:.0f} STB/day")
     col3.metric("Efficiency", f"{efficiency:.1f}%")
     col4.metric("Flow Type", "Vogel" if Pwf < Pb else "Darcy")
@@ -120,6 +122,7 @@ with tab_curve:
     ax.scatter(Q, Pwf, color='red', s=120, zorder=5, label='Operating Point')
     ax.set_xlim(0, max_x)
     ax.set_xlabel("Flow Rate (STB/day)"); ax.set_ylabel("Pressure (psi)")
+    ax.set_title("Inflow Performance Relationship")
     ax.legend(); ax.grid(True, alpha=0.3); ax.invert_yaxis()
     st.pyplot(fig)
 
@@ -127,6 +130,7 @@ with tab_diag:
     if Pwf >= Pb: st.success(f"✅ DARCY FLOW: Single Phase Above Pb")
     else: st.warning(f"⚠️ VOGEL FLOW: Two Phase Below Pb")
     st.progress(min(efficiency/100, 1.0))
+    st.metric("Productivity Index J", f"{AOF_full/Pr:.2f} STB/day/psi")
 
 with tab_report:
     st.subheader("📄 Generate Professional Report")

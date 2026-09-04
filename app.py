@@ -58,8 +58,12 @@ if Pwf > Pr:
 
 pi = np.pi
 denom = 141.2 * Bo * mu * (np.log(re/rw) - 0.75 + S)
-AOF = (kh * (Pr**2 - Pb**2)) / denom / 1000 if Pb < Pr else (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S)) / 1000
-efficiency = (Q / (AOF*1000)) * 100 if AOF > 0 else 0
+
+# نحسب AOF كامل بدون قسمة 1000
+AOF_full = (kh * (Pr**2 - Pb**2)) / denom if Pb < Pr else (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
+AOF = AOF_full / 1000  # للعرض فقط بالالف
+
+efficiency = (Q / AOF_full) * 100 if AOF_full > 0 else 0  # <-- هنا التعديل
 
 # IPR Curve
 P_vals = np.linspace(0, Pr, 100)
@@ -69,7 +73,7 @@ for P in P_vals:
         Qp = (kh * (Pr - P)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
     else: 
         Qb = (kh * (Pr - Pb)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-        Qp = Qb + (AOF*1000 - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)
+        Qp = Qb + (AOF_full - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)  # <-- استخدمنا AOF_full
     Q_vals.append(max(0, Qp))
 
 # ===================== PDF FUNCTION =====================
@@ -90,7 +94,9 @@ def create_pdf():
     c.setFont("Helvetica", 10); c.drawString(70, y-15, flow)
     y -= 30
     c.setFont("Helvetica-Bold", 12); c.drawString(50, y, "Recommendation:")
-    rec = "Well is operating efficiently >80%." if efficiency > 80 else "Consider well stimulation to improve productivity."
+    if efficiency > 80: rec = "Well is operating efficiently >80%."
+    elif efficiency > 50: rec = "Well performance is good. Monitor closely."
+    else: rec = "Consider well stimulation to improve productivity."
     c.setFont("Helvetica", 10); c.drawString(70, y-15, rec)
     c.save()
     buffer.seek(0)
@@ -120,11 +126,11 @@ with tab_curve:
 with tab_diag:
     if Pwf >= Pb: st.success(f"✅ DARCY FLOW: Single Phase Above Pb")
     else: st.warning(f"⚠️ VOGEL FLOW: Two Phase Below Pb")
-    st.progress(efficiency/100)
+    st.progress(min(efficiency/100, 1.0))
 
 with tab_report:
     st.subheader("📄 Generate Professional Report")
-    st.write("Click the button below to download a professional PDF report with all inputs, results, and recommendations.")  # <-- هنا كان الغلط
+    st.write("Click the button below to download a professional PDF report with all inputs, results, and recommendations.")
     pdf_file = create_pdf()
     st.download_button(
         label="⬇️ Download PDF Report",

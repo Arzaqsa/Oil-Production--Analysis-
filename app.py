@@ -8,7 +8,9 @@ from reportlab.lib.pagesizes import A4
 
 st.set_page_config(page_title="Arzaq Pro - IPR", layout="wide", page_icon="🛢️")
 
-# CSS احترافي
+if 'clear' not in st.session_state:
+    st.session_state.clear()
+
 st.markdown("""
 <style>
     .main-header {font-size:2.5rem; color:#0D47A1; font-weight:700}
@@ -28,46 +30,47 @@ with st.sidebar:
     
     with tab1:
         with st.expander("▼ Reservoir Properties", expanded=True):
-            Pr = st.number_input("Reservoir Pressure Pr (psi)", 1000.0, 15000.0, 5000.0, 100.0)
-            Pb = st.number_input("Bubble Point Pb (psi)", 500.0, 10000.0, 3000.0, 100.0)
-            re = st.number_input("Drainage Radius re (ft)", 100.0, 5000.0, 1000.0, 50.0)
+            Pr = st.number_input("Reservoir Pressure Pr (psi)", 1000.0, 15000.0, 5000.0, 100.0, key="Pr")
+            Pb = st.number_input("Bubble Point Pb (psi)", 500.0, 10000.0, 3000.0, 100.0, key="Pb")
+            re = st.number_input("Drainage Radius re (ft)", 100.0, 5000.0, 1000.0, 50.0, key="re")
         with st.expander("▼ Well Geometry"):
-            rw = st.number_input("Wellbore Radius rw (ft)", 0.1, 1.0, 0.3, 0.05)
-            S = st.number_input("Skin Factor S", -5.0, 50.0, 0.0, 0.5)
+            rw = st.number_input("Wellbore Radius rw (ft)", 0.1, 1.0, 0.3, 0.05, key="rw")
+            S = st.number_input("Skin Factor S", -5.0, 50.0, 0.0, 0.5, key="S")
         with st.expander("▼ Fluid Properties"):
-            kh = st.number_input("Permeability-Thickness kh (mD.ft)", 1000.0, 100000.0, 10000.0, 500.0)
-            mu = st.number_input("Viscosity mu (cp)", 0.1, 10.0, 1.0, 0.1)
-            Bo = st.number_input("Formation Volume Factor Bo (RB/STB)", 1.0, 3.0, 1.2, 0.05)
+            kh = st.number_input("Permeability-Thickness kh (mD.ft)", 1000.0, 100000.0, 10000.0, 500.0, key="kh")
+            mu = st.number_input("Viscosity mu (cp)", 0.1, 10.0, 1.0, 0.1, key="mu")
+            Bo = st.number_input("Formation Volume Factor Bo (RB/STB)", 1.0, 3.0, 1.2, 0.05, key="Bo")
         
         st.subheader("Operating Conditions")
-        Pwf = st.slider("Bottom Hole Pressure Pwf (psi)", 0.0, Pr, 800.0, 50.0)
-        Q = st.number_input("Current Flow Rate Q (STB/day)", 0.0, 200000.0, 36065.0, 500.0)
+        Pwf = st.slider("Bottom Hole Pressure Pwf (psi)", 0.0, Pr, 3300.0, 50.0, key="Pwf")
+        Q = st.number_input("Current Flow Rate Q (STB/day)", 0.0, 200000.0, 36065.0, 500.0, key="Q")
     
     with tab2:
         if st.button("🟢 Light Oil Well"): 
+            for k in ["Pr","Pb","kh","mu","Bo"]: st.session_state.pop(k, None)
             st.session_state.update({'Pr':5000,'Pb':3000,'kh':15000,'mu':0.8,'Bo':1.25})
             st.rerun()
         if st.button("🟠 Heavy Oil Well"):
+            for k in ["Pr","Pb","kh","mu","Bo"]: st.session_state.pop(k, None)
             st.session_state.update({'Pr':4000,'Pb':2000,'kh':5000,'mu':5.0,'Bo':1.1})
             st.rerun()
     with tab3:
-        st.info("Arzaq Pro v1.2\nIPR Dashboard using Darcy & Vogel Equations")
+        st.info("Arzaq Pro v1.3\nIPR Dashboard using Darcy & Vogel Equations")
 
 # ===================== VALIDATION & CALC =====================
 if Pwf > Pr: 
     st.error("❌ Error: Pwf cannot be greater than Pr")
     st.stop()
 
-pi = np.pi
 denom = 141.2 * Bo * mu * (np.log(re/rw) - 0.75 + S)
 
-# نحسب AOF كامل بدون قسمة 1000 عشان الحسابات
-AOF_full = (kh * (Pr**2 - Pb**2)) / denom if Pb < Pr else (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-AOF = AOF_full / 1000  # للعرض فقط بالالف STB/day
+if Pb < Pr:
+    AOF = (kh * (Pr**2 - Pb**2)) / denom
+else:
+    AOF = (kh * Pr) / (141.2 * Bo * mu * (np.log(re/rw) + S))
 
-efficiency = (Q / AOF_full) * 100 if AOF_full > 0 else 0  # <-- التعديل هنا
+efficiency = (Q / AOF) * 100 if AOF > 0 else 0
 
-# IPR Curve
 P_vals = np.linspace(0, Pr, 100)
 Q_vals = []
 for P in P_vals:
@@ -75,7 +78,7 @@ for P in P_vals:
         Qp = (kh * (Pr - P)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
     else: 
         Qb = (kh * (Pr - Pb)) / (141.2 * Bo * mu * (np.log(re/rw) + S))
-        Qp = Qb + (AOF_full - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)  # <-- وهنا
+        Qp = Qb + (AOF - Qb) * (1 - 0.2*(P/Pb) - 0.8*(P/Pb)**2)
     Q_vals.append(max(0, Qp))
 
 # ===================== PDF FUNCTION =====================
@@ -109,7 +112,7 @@ tab_dash, tab_curve, tab_diag, tab_report = st.tabs(["📊 Dashboard", "📈 IPR
 
 with tab_dash:
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("AOF", f"{AOF:.1f} K STB/day")
+    col1.metric("AOF", f"{AOF:.1f} STB/day")
     col2.metric("Current Q", f"{Q:.0f} STB/day")
     col3.metric("Efficiency", f"{efficiency:.1f}%")
     col4.metric("Flow Type", "Vogel" if Pwf < Pb else "Darcy")
@@ -130,11 +133,11 @@ with tab_diag:
     if Pwf >= Pb: st.success(f"✅ DARCY FLOW: Single Phase Above Pb")
     else: st.warning(f"⚠️ VOGEL FLOW: Two Phase Below Pb")
     st.progress(min(efficiency/100, 1.0))
-    st.metric("Productivity Index J", f"{AOF_full/Pr:.2f} STB/day/psi")
+    st.metric("Productivity Index J", f"{AOF/Pr:.2f} STB/day/psi")
 
 with tab_report:
     st.subheader("📄 Generate Professional Report")
-    st.write("Click the button below to download a professional PDF report with all inputs, results, and recommendations.")
+    st.write("Click the button below to download a professional PDF report")
     pdf_file = create_pdf()
     st.download_button(
         label="⬇️ Download PDF Report",

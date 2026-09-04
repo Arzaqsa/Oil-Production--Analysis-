@@ -7,7 +7,12 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 
 st.set_page_config(page_title="Arzaq Pro - IPR", layout="wide", page_icon="🛢️")
-st.session_state.clear()
+st.markdown("""
+<style>
+.main-header {font-size:2.5rem; color:#1f77b4; font-weight:bold;}
+.sub-header {font-size:1.2rem; color:#666;}
+</style>
+""", unsafe_allow_html=True)
 
 st.markdown('<p class="main-header">🛢️ Arzaq Pro</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
@@ -16,10 +21,10 @@ st.divider()
 with st.sidebar:
     st.header("⚙️ Control Panel")
     Pr = st.number_input("Reservoir Pressure Pr (psi)", 1000.0, 15000.0, 5000.0, 100.0)
-    Pb = st.number_input("Bubble Point Pb (psi)", 500.0, 10000.0, 3000.0, 100.0) # خليه 3000
+    Pb = st.number_input("Bubble Point Pb (psi)", 500.0, 10000.0, 3000.0, 100.0)
     re = st.number_input("Drainage Radius re (ft)", 100.0, 5000.0, 1000.0, 50.0)
     rw = st.number_input("Wellbore Radius rw (ft)", 0.1, 1.0, 0.3, 0.05)
-    S = st.number_input("Skin Factor S", -5.0, 50.0, 0.0, 0.5) # خليه 0
+    S = st.number_input("Skin Factor S", -5.0, 50.0, 0.0, 0.5)
     kh = st.number_input("Permeability-Thickness kh (mD.ft)", 1000.0, 100000.0, 10000.0, 500.0)
     mu = st.number_input("Viscosity mu (cp)", 0.1, 10.0, 1.0, 0.1)
     Bo = st.number_input("Formation Volume Factor Bo (RB/STB)", 1.0, 3.0, 1.2, 0.05)
@@ -39,9 +44,6 @@ else:
 
 efficiency = (Q / AOF) * 100 if AOF > 0 else 0
 
-# للتشخيص
-st.sidebar.write(f"Debug: AOF={AOF:.1f}, Denom={denom:.2f}")
-
 P_vals = np.linspace(0, Pr, 100)
 Q_vals = []
 for P in P_vals:
@@ -58,5 +60,33 @@ with tab_dash:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("AOF", f"{AOF:.1f} STB/day")
     col2.metric("Current Q", f"{Q:.0f} STB/day")
-    col3.metric("Efficiency", f"{efficiency:.2f}%") # خليتها 2 خانات
+    col3.metric("Efficiency", f"{efficiency:.2f}%")
     col4.metric("Flow Type", "Vogel" if Pwf < Pb else "Darcy")
+    st.sidebar.write(f"Debug: AOF={AOF:.1f}")
+
+with tab_curve:
+    fig, ax = plt.subplots(figsize=(8,5))
+    ax.plot(Q_vals, P_vals, 'b-', linewidth=2)
+    ax.plot(Q, Pwf, 'ro', markersize=10, label=f'Current Point: {Q:.0f}, {Pwf:.0f}')
+    ax.set_xlabel("Flow Rate Q (STB/day)")
+    ax.set_ylabel("Pressure (psi)")
+    ax.set_title("IPR Curve")
+    ax.legend()
+    ax.grid(True)
+    st.pyplot(fig)
+
+with tab_diag:
+    st.subheader("Well Diagnostics")
+    st.write(f"**AOF**: {AOF:.1f} STB/day")
+    st.write(f"**Productivity Index**: {Q/(Pr-Pwf):.3f} STB/day/psi")
+
+with tab_report:
+    st.subheader("Generate PDF Report")
+    if st.button("Download Report"):
+        buffer = BytesIO()
+        c = canvas.Canvas(buffer, pagesize=A4)
+        c.drawString(100, 800, f"Arzaq Pro Report - {datetime.now().strftime('%Y-%m-%d')}")
+        c.drawString(100, 780, f"AOF: {AOF:.1f} STB/day")
+        c.drawString(100, 760, f"Efficiency: {efficiency:.2f}%")
+        c.save()
+        st.download_button("Download PDF", buffer.getvalue(), "report.pdf")

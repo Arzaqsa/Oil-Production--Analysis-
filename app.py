@@ -108,7 +108,7 @@ with tab_dash:
 
 with tab_curve:
     fig, ax = plt.subplots(figsize=(10,6))
-    max_x = max(max(Q_vals), Q) * 1.1  # يخلي الرسم واضح ومكبر
+    max_x = max(max(Q_vals), Q) * 1.1  
     color = 'orange' if Pwf < Pb else 'blue'
     ax.plot(Q_vals, P_vals, color=color, linewidth=2.5, label='IPR Curve')
     ax.scatter(Q, Pwf, color='red', s=120, zorder=5, label='Operating Point')
@@ -124,7 +124,7 @@ with tab_diag:
 
 with tab_report:
     st.subheader("📄 Generate Professional Report")
-    st.write("اضغطي الزر عشان ينزل تقرير PDF فيه كل المدخلات والنتائج")
+    st.write
     pdf_file = create_pdf()
     st.download_button(
         label="⬇️ Download PDF Report",

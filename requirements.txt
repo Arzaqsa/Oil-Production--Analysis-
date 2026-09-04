@@ -1,4 +1,9 @@
-    streamlit
-    numpy
-    matplotlib
-    pandas
+streamlit
+numpy
+matplotlib
+pandas
+reportlab
+    
+    
+    
+

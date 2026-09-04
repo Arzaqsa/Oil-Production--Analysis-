@@ -124,7 +124,7 @@ with tab_diag:
 
 with tab_report:
     st.subheader("📄 Generate Professional Report")
-    st.writest.write("Click the button below to download a professional PDF report with all inputs, results, and recommendations.")
+    st.write("Click the button below to download a professional PDF report with all inputs, results, and recommendations.")  # <-- هنا كان الغلط
     pdf_file = create_pdf()
     st.download_button(
         label="⬇️ Download PDF Report",

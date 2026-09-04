@@ -29,7 +29,7 @@ with st.sidebar:
     mu = st.number_input("Viscosity mu (cp)", 0.1, 10.0, 1.0, 0.1)
     Bo = st.number_input("Formation Volume Factor Bo (RB/STB)", 1.0, 3.0, 1.2, 0.05)
     Pwf = st.slider("Bottom Hole Pressure Pwf (psi)", 0.0, Pr, 3300.0, 50.0)
-    Q = st.number_input("Current Flow Rate Q (STB/day)", 0.0, 200000.0, 36065.0, 500.0)
+    # شلنا Q اليدوي
 
 if Pwf > Pr: 
     st.error("Error: Pwf cannot be greater than Pr")
@@ -39,7 +39,12 @@ if Pwf > Pr:
 denom = 141.2 * Bo * mu * (np.log(re/rw) - 0.75 + S)
 PI = kh / denom  # Productivity Index
 AOF = PI * Pr    # AOF = PI * Pr للـ Darcy Flow
-efficiency = (Q / AOF) * 100 if AOF > 0 else 0
+
+# نحسب Q تلقائي من Pwf
+Q_calculated = PI * (Pr - Pwf)  
+Q_calculated = max(0, Q_calculated) # عشان ما يطلع سالب
+
+efficiency = (Q_calculated / AOF) * 100 if AOF > 0 else 0
 drawdown = Pr - Pwf
 
 # ====== IPR CURVE ======
@@ -51,16 +56,19 @@ tab_dash, tab_curve, tab_diag, tab_report = st.tabs(["📊 Dashboard", "📈 IPR
 with tab_dash:
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("AOF", f"{AOF:,.1f} STB/day")
-    col2.metric("Current Q", f"{Q:,.0f} STB/day")
+    col2.metric("Calculated Q", f"{Q_calculated:,.0f} STB/day") # غيرنا الاسم
     col3.metric("Efficiency", f"{efficiency:.2f}%")
     col4.metric("PI", f"{PI:.4f} STB/d/psi")
     
-    st.success(f"Flow Regime: Darcy Single Phase - Pwf > Pb")
+    if Pwf > Pb:
+        st.success(f"Flow Regime: Darcy Single Phase - Pwf > Pb")
+    else:
+        st.warning(f"Flow Regime: Below Pb. Use Arzaq Nodal for accuracy")
 
 with tab_curve:
     fig, ax = plt.subplots(figsize=(10,6))
     ax.plot(Q_vals, P_vals, 'b-', linewidth=2.5, label="IPR Curve - Darcy")
-    ax.plot(Q, Pwf, 'ro', markersize=12, label=f'Operating Point: Q={Q:,.0f}, Pwf={Pwf:.0f}')
+    ax.plot(Q_calculated, Pwf, 'ro', markersize=12, label=f'Operating Point: Q={Q_calculated:,.0f}, Pwf={Pwf:.0f}') # استخدمنا المحسوب
     ax.axhline(y=Pb, color='g', linestyle='--', label=f'Bubble Point Pb={Pb} psi')
     ax.set_xlabel("Flow Rate Q (STB/day)", fontsize=12)
     ax.set_ylabel("Pressure (psi)", fontsize=12)
@@ -77,7 +85,7 @@ with tab_diag:
         st.metric("Drawdown", f"{drawdown:.0f} psi")
         st.metric("AOF", f"{AOF:,.1f} STB/day")
     with col2:
-        st.metric("Current Q", f"{Q:,.0f} STB/day")
+        st.metric("Calculated Q", f"{Q_calculated:,.0f} STB/day") # استخدمنا المحسوب
         st.metric("Efficiency", f"{efficiency:.2f}%")
     
     if efficiency < 50:
@@ -111,7 +119,7 @@ with tab_report:
             f"Reservoir Pressure Pr: {Pr:.0f} psi",
             f"Bubble Point Pb: {Pb:.0f} psi", 
             f"Bottom Hole Pressure Pwf: {Pwf:.0f} psi",
-            f"Current Flow Rate Q: {Q:,.0f} STB/day",
+            f"Calculated Flow Rate Q: {Q_calculated:,.0f} STB/day", # عدلناه
             f"Permeability-Thickness kh: {kh:,.0f} mD.ft",
             f"Viscosity mu: {mu:.2f} cp",
             f"Formation Volume Factor Bo: {Bo:.2f} RB/STB",

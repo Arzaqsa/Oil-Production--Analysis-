@@ -63,7 +63,7 @@ with tab_dash:
     if Pwf > Pb:
         st.success(f"Flow Regime: Darcy Single Phase - Pwf > Pb")
     else:
-        st.warning(f"Flow Regime: Below Pb. Use Arzaq Nodal for accuracy")
+        st.warning(f"Flow Regime: Below Pb. Use Z2 for accuracy")
 
 with tab_curve:
     fig, ax = plt.subplots(figsize=(10,6))

@@ -6,7 +6,7 @@ from datetime import datetime
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 
-st.set_page_config(page_title="Arzaq Pro - IPR", layout="wide", page_icon="🛢️")
+st.set_page_config(page_title="Z1- IPR", layout="wide", page_icon="🛢️")
 st.markdown("""
 <style>
 .main-header {font-size:2.5rem; color:#1f77b4; font-weight:bold;}

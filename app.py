@@ -14,7 +14,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown('<p class="main-header">🛢️ Arzaq Pro</p>', unsafe_allow_html=True)
+st.markdown('<p class="main-header">🛢️ Z1</p>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Well Performance & IPR Analysis Dashboard</p>', unsafe_allow_html=True)
 st.divider()
 
@@ -104,7 +104,7 @@ with tab_report:
         
         # Header
         c.setFont("Helvetica-Bold", 18)
-        c.drawString(50, y, "Arzaq Pro - Well Performance Report")
+        c.drawString(50, y, "Z1- Well Performance Report")
         y -= 25
         c.setFont("Helvetica", 10)
         c.drawString(50, y, f"Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}")
@@ -144,4 +144,4 @@ with tab_report:
         
         c.save()
         buffer.seek(0)
-        st.download_button("⬇️ Download PDF Report", buffer, "Arzaq_Report.pdf", "application/pdf")
+        st.download_button("⬇️ Download PDF Report", buffer, "Z1_Report.pdf", "application/pdf")
